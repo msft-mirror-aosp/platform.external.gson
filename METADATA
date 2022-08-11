@@ -1,0 +1,20 @@
+name: "gson"
+description:
+    "A Java serialization/deserialization library to convert Java Objects into JSON and back"
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://github.com/google/gson"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/google/gson.git"
+  }
+  version: "2.9.1"
+  last_upgrade_date { year: 2022 month: 8 day: 9 }
+  license_type: NOTICE
+  security {
+    tag: "NVD-CPE2.3:cpe:/a:google:gson:2.9.1"
+  }
+}
