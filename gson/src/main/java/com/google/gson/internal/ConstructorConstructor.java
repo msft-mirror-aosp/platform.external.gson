@@ -61,6 +61,25 @@ public final class ConstructorConstructor {
     this.reflectionFilters = reflectionFilters;
   }
 
+  /**
+   * Check if the class can be instantiated by Unsafe allocator. If the instance has interface or abstract modifiers
+   * return an exception message.
+   * @param c instance of the class to be checked
+   * @return if instantiable {@code null}, else a non-{@code null} exception message
+   */
+  static String checkInstantiable(Class<?> c) {
+    int modifiers = c.getModifiers();
+    if (Modifier.isInterface(modifiers)) {
+      return "Interfaces can't be instantiated! Register an InstanceCreator "
+          + "or a TypeAdapter for this type. Interface name: " + c.getName();
+    }
+    if (Modifier.isAbstract(modifiers)) {
+      return "Abstract classes can't be instantiated! Register an InstanceCreator "
+          + "or a TypeAdapter for this type. Class name: " + c.getName();
+    }
+    return null;
+  }
+
   public <T> ObjectConstructor<T> get(TypeToken<T> typeToken) {
     final Type type = typeToken.getType();
     final Class<? super T> rawType = typeToken.getRawType();
@@ -110,7 +129,7 @@ public final class ConstructorConstructor {
 
     // Check whether type is instantiable; otherwise ReflectionAccessFilter recommendation
     // of adjusting filter suggested below is irrelevant since it would not solve the problem
-    final String exceptionMessage = UnsafeAllocator.checkInstantiable(rawType);
+    final String exceptionMessage = checkInstantiable(rawType);
     if (exceptionMessage != null) {
       return new ObjectConstructor<T>() {
         @Override public T construct() {
@@ -242,14 +261,17 @@ public final class ConstructorConstructor {
           @SuppressWarnings("unchecked") // T is the same raw type as is requested
           T newInstance = (T) constructor.newInstance();
           return newInstance;
-        } catch (InstantiationException e) {
-          // TODO: JsonParseException ?
-          throw new RuntimeException("Failed to invoke " + constructor + " with no args", e);
+        }
+        // Note: InstantiationException should be impossible because check at start of method made sure
+        //   that class is not abstract
+        catch (InstantiationException e) {
+          throw new RuntimeException("Failed to invoke constructor '" + ReflectionHelper.constructorToString(constructor) + "'"
+              + " with no args", e);
         } catch (InvocationTargetException e) {
-          // TODO: don't wrap if cause is unchecked!
+          // TODO: don't wrap if cause is unchecked?
           // TODO: JsonParseException ?
-          throw new RuntimeException("Failed to invoke " + constructor + " with no args",
-              e.getTargetException());
+          throw new RuntimeException("Failed to invoke constructor '" + ReflectionHelper.constructorToString(constructor) + "'"
+              + " with no args", e.getCause());
         } catch (IllegalAccessException e) {
           throw ReflectionHelper.createExceptionForUnexpectedIllegalAccess(e);
         }
@@ -342,11 +364,10 @@ public final class ConstructorConstructor {
   private <T> ObjectConstructor<T> newUnsafeAllocator(final Class<? super T> rawType) {
     if (useJdkUnsafe) {
       return new ObjectConstructor<T>() {
-        private final UnsafeAllocator unsafeAllocator = UnsafeAllocator.create();
         @Override public T construct() {
           try {
             @SuppressWarnings("unchecked")
-            T newInstance = (T) unsafeAllocator.newInstance(rawType);
+            T newInstance = (T) UnsafeAllocator.INSTANCE.newInstance(rawType);
             return newInstance;
           } catch (Exception e) {
             throw new RuntimeException(("Unable to create instance of " + rawType + ". "
