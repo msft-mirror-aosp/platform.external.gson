@@ -35,6 +35,8 @@ java_library {
         ":GsonBuildConfig.java",
     ],
     sdk_version: "current",
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }
 
 python_binary_host {
